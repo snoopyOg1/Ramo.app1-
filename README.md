@@ -11,9 +11,12 @@ limite volontairement à une connexion Airtable simple :
 Aucune donnée n'est dupliquée : l'app lit en direct la base Airtable existante
 (`Suivi Prospects Agences` → table `Agences immobilières`).
 
+Stack : **Python + Streamlit** — une seule commande pour lancer, pas de build,
+pas d'écosystème npm à gérer.
+
 ## Prérequis
 
-- Node.js 18+
+- Python 3.9+
 - Un Personal Access Token Airtable ayant :
   - le scope `data.records:read`
   - l'accès à la base `Suivi Prospects Agences` (`appsCrRJjuTmuw9Y3`)
@@ -23,22 +26,30 @@ Créez un token ici : https://airtable.com/create/tokens
 ## Installation
 
 ```bash
-npm install
-cp .env.local.example .env.local
-# éditez .env.local et renseignez AIRTABLE_TOKEN
-npm run dev
+python3 -m venv .venv
+source .venv/bin/activate          # Windows : .venv\Scripts\activate
+pip install -r requirements.txt
+
+cp .streamlit/secrets.toml.example .streamlit/secrets.toml
+# éditez .streamlit/secrets.toml et renseignez AIRTABLE_TOKEN
+
+streamlit run app.py
 ```
 
-Ouvrez http://localhost:3000 — la liste déroulante doit se remplir avec les
-agences de la base, et sélectionner une agence affiche nom / ville / score.
+Le navigateur s'ouvre automatiquement — la liste déroulante doit se remplir
+avec les agences de la base, et sélectionner une agence affiche nom / ville /
+score.
 
 ## Architecture (volontairement minimale)
 
-- `pages/api/agencies.js` — route serveur Next.js qui appelle l'API Airtable
-  avec le token (jamais exposé au navigateur), pagine sur toutes les
-  agences et renvoie `{ id, name, city, score }`.
-- `pages/index.js` — page unique : select + carte d'affichage.
+Un seul fichier, `app.py` :
+
+- `fetch_agencies()` — appelle l'API Airtable avec le token (jamais exposé
+  au navigateur : lu depuis `st.secrets` ou une variable d'environnement),
+  pagine sur toutes les agences, filtre les lignes sans nom, trie
+  alphabétiquement. Résultat mis en cache 5 minutes (`st.cache_data`).
+- `main()` — select d'agence + affichage ville / score.
 
 Le `AIRTABLE_BASE_ID` et `AIRTABLE_TABLE_ID` sont déjà pré-remplis dans
-`.env.local.example` avec les valeurs de votre base ; changez-les seulement
-si vous voulez pointer vers une autre base/table.
+`.streamlit/secrets.toml.example` avec les valeurs de votre base ; changez-les
+seulement si vous voulez pointer vers une autre base/table.
