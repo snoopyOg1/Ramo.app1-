@@ -32,13 +32,16 @@ un autre store.
 
 Base connue à ce jour :
 - **Suivi Prospects Agences** — base ID `appsCrRJjuTmuw9Y3`
-  - table `Agences immobilières` (ID `tblGWjkwRgKkJIps6`) : 133
+  - table `Agences immobilières` (ID `tblGWjkwRgKkJIps6`) : 132-133
     agences immobilières qualifiées (champs clés : `nom de l'agence`,
-    `ville`, `score prospect`, `statut`, etc.)
+    `ville`, `score prospect`, `statut`, `nombre d'agents estimé`, etc.)
   - table `Opportunites` (ID `tblf2020OCEiZsxOu`) : liée à la table
-    agences, détail de scoring (`Score total`, `Statut opportunite`,
-    etc.) — **"Opportunités" est une table dans cette base, pas une
-    base séparée**, malgré la mention initiale de deux bases distinctes.
+    agences, détail de scoring sur 4 dimensions (`Presence digitale`,
+    `Absence de CRM`, `Taille structure`, `Activite confirmee`) plus un
+    champ `Hypotheses a verifier en appel` — **"Opportunités" est une
+    table dans cette base, pas une base séparée**, malgré la mention
+    initiale de deux bases distinctes. Ces 4 dimensions ont servi de
+    trame aux questions de l'audit guidé (étape 2).
 
 Avant de coder contre une base/table Airtable, vérifier son schéma exact
 via le connecteur Airtable MCP disponible dans Claude Code plutôt que de
@@ -59,9 +62,20 @@ On construit **un morceau à la fois**, testé avant de passer au suivant.
 Ne jamais anticiper ou construire une étape suivante sans validation
 explicite de l'étape en cours par l'utilisateur.
 
-État actuel : **Étape 1 uniquement** — connexion Airtable, sélection
-d'une agence dans une liste déroulante, affichage nom / ville / score.
-Rien au-delà tant que ce n'est pas validé.
+État actuel :
+- **Étape 1 — validée en production.** Testée par l'utilisateur en
+  conditions réelles sur Streamlit Community Cloud (132 agences
+  chargées, ex. ABD Immobilier / Creil / score 81). Fusionnée dans
+  `main` : c'est la branche à déployer.
+- **Étape 2 — audit guidé, construite et testée localement**
+  (`streamlit.testing.v1.AppTest` : sélection d'agence, remplissage,
+  soumission, isolation de l'état entre agences, cas "rien renseigné"),
+  en attente de validation utilisateur en conditions réelles. Pas de
+  logique de diagnostic, pas d'écriture dans Airtable à ce stade — les
+  réponses restent en mémoire de session. Sur la branche de travail
+  `claude/airtable-connection-v1-pbiy4w`, pas encore mergée dans `main`.
+
+Rien au-delà de l'étape 2 tant que ce n'est pas validé.
 
 ## Sécurité
 
@@ -75,3 +89,6 @@ Rien au-delà tant que ce n'est pas validé.
 - Avant de dévier d'une décision listée dans ce fichier (stack, méthode,
   périmètre), le signaler explicitement à l'utilisateur et demander
   confirmation plutôt que de trancher seul.
+- Avant d'écrire dans une base Airtable de production (pas seulement en
+  lire), demander confirmation explicite — ce n'est pas encore le cas à
+  ce stade (étapes 1-2 en lecture seule).
