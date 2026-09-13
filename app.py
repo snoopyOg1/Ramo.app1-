@@ -1,10 +1,12 @@
 """RAMO — Étape 1 : connexion Airtable (sélection d'agence).
-Étape 2 : audit guidé (questionnaire structuré, sans logique de diagnostic).
+Étape 2 : audit guidé (questionnaire structuré).
+Étape 3 : diagnostic (reformulation des réponses en problèmes, sans score).
 
 Aucune donnée n'est dupliquée : on lit en direct la base Airtable existante
-("Suivi Prospects Agences" -> table "Agences immobilières"). L'audit guidé
-ne fait que capturer des réponses pour l'instant — il n'est pas encore
-écrit dans Airtable et ne calcule aucun score (ça viendra à l'étape 3).
+("Suivi Prospects Agences" -> table "Agences immobilières"). L'audit et le
+diagnostic ne font que capturer/reformuler des réponses pour l'instant —
+rien n'est encore écrit dans Airtable et aucun score n'est calculé (ça
+viendra à l'étape 4, avec le plan de solution).
 """
 
 import os
@@ -81,6 +83,44 @@ AUDIT_QUESTIONS = [
 ]
 
 STATUS_OPTIONS = ["Hypothèse à vérifier", "Fait confirmé"]
+
+# Étape 3 — Diagnostic : reformulation des réponses de l'audit guidé en
+# problèmes, quand la réponse choisie indique un problème. Pas de logique
+# de score ici (viendra à l'étape 4) : seules les options déjà définies
+# dans AUDIT_QUESTIONS sont reformulées, rien n'est déduit au-delà de ce
+# qui a été répondu. Une réponse absente de ce mapping (ex. "Oui") n'est
+# tout simplement pas un problème.
+PROBLEM_STATEMENTS = {
+    "site_web_a_jour": {
+        "Non": "Le site web de l'agence n'est pas à jour ou n'est pas fonctionnel.",
+        "Partiellement": "Le site web de l'agence n'est que partiellement à jour ou fonctionnel.",
+        "Pas de site identifié": "Aucun site web n'a été identifié pour l'agence.",
+    },
+    "reseaux_sociaux_actifs": {
+        "Présents mais peu actifs": "Les réseaux sociaux de l'agence sont présents mais peu actifs.",
+        "Absents": "Aucun réseau social actif n'a été identifié pour l'agence.",
+        "Ne sait pas": "L'activité des réseaux sociaux de l'agence n'est pas connue.",
+    },
+    "crm_structure": {
+        "Outil basique (Excel, Sheets)": "Le suivi des leads repose sur un outil basique (Excel/Sheets), pas un CRM structuré.",
+        "Aucun système": "Aucun système de suivi des leads n'est en place.",
+        "Ne sait pas": "La présence d'un CRM structuré n'est pas connue.",
+    },
+    "delai_relance": {
+        "2 à 3 jours": "Le délai moyen de relance d'un lead entrant est de 2 à 3 jours.",
+        "Plus d'une semaine": "Le délai moyen de relance d'un lead entrant dépasse une semaine.",
+        "Pas de process défini": "Aucun délai de relance défini pour les leads entrants.",
+    },
+    "process_relance_automatise": {
+        "Non": "Aucun process de relance automatisé ou systématique en place.",
+        "Partiel": "Le process de relance automatisé n'est que partiel.",
+    },
+}
+
+# Questions de l'audit dont la réponse est contextuelle (pas un choix fermé
+# problème/non-problème) : affichées telles quelles dans le diagnostic,
+# sans statut fait/hypothèse ni classement en "problème".
+CONTEXT_QUESTION_KEYS = ["outil_suivi_leads", "nombre_agents", "volume_leads_mensuel"]
 
 
 def get_config(key, default=None):
@@ -236,10 +276,70 @@ def render_audit_form(agency):
                 st.write(f"**Notes** — {saved['notes']}")
 
 
+def render_diagnostic(agency):
+    """Étape 3 : diagnostic — liste des problèmes identifiés à partir des
+    réponses de l'audit guidé (étape 2). Pure reformulation : chaque
+    problème hérite du statut fait confirmé / hypothèse à vérifier de la
+    réponse correspondante, rien n'est recalculé ni pondéré (ça viendra à
+    l'étape 4, avec le plan de solution).
+    """
+    st.divider()
+    st.header("Diagnostic")
+
+    saved = st.session_state.get("audits", {}).get(agency["id"])
+    if not saved:
+        st.info("Complétez d'abord l'audit guidé ci-dessus pour générer le diagnostic de cette agence.")
+        return
+
+    st.caption(f"Basé sur l'audit du {saved['date']}.")
+
+    problems_by_section = {}
+    current_section = None
+    for q in AUDIT_QUESTIONS:
+        if q["section"] != current_section:
+            current_section = q["section"]
+        options_map = PROBLEM_STATEMENTS.get(q["key"])
+        if not options_map:
+            continue
+        answer = saved["answers"].get(q["key"])
+        if not answer:
+            continue
+        statement = options_map.get(answer["reponse"])
+        if not statement:
+            continue  # réponse donnée, mais pas une réponse "à problème"
+        problems_by_section.setdefault(q["section"], []).append(
+            {"statement": statement, "statut": answer["statut"]}
+        )
+
+    total_problems = sum(len(v) for v in problems_by_section.values())
+    if total_problems == 0:
+        st.success("Aucun problème identifié à partir des réponses de l'audit.")
+    else:
+        st.write(f"**{total_problems} problème(s) identifié(s)**")
+        for section, problems in problems_by_section.items():
+            st.markdown(f"**{section}**")
+            for p in problems:
+                badge = "✅" if p["statut"] == "Fait confirmé" else "❓"
+                st.write(f"{badge} {p['statement']} _({p['statut']})_")
+
+    context_items = []
+    for key in CONTEXT_QUESTION_KEYS:
+        answer = saved["answers"].get(key)
+        if answer and answer["reponse"] not in (None, ""):
+            context_items.append(f"**{answer['question']}** — {answer['reponse']}")
+    if saved.get("notes"):
+        context_items.append(f"**Notes de l'audit** — {saved['notes']}")
+
+    if context_items:
+        with st.expander("Informations complémentaires (non classées comme problèmes)"):
+            for item in context_items:
+                st.write(item)
+
+
 def main():
     st.set_page_config(page_title="RAMO — Audit guidé", page_icon="🏠")
     st.title("RAMO")
-    st.caption("Étape 1 : connexion Airtable · Étape 2 : audit guidé")
+    st.caption("Étape 1 : connexion Airtable · Étape 2 : audit guidé · Étape 3 : diagnostic")
 
     token = get_config("AIRTABLE_TOKEN")
     base_id = get_config("AIRTABLE_BASE_ID", DEFAULT_BASE_ID)
@@ -263,6 +363,7 @@ def main():
     if agency:
         render_agency_card(agency)
         render_audit_form(agency)
+        render_diagnostic(agency)
 
 
 if __name__ == "__main__":
