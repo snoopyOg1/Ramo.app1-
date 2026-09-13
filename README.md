@@ -1,4 +1,4 @@
-# RAMO — Étape 1 & 2
+# RAMO — Étapes 1, 2 & 3
 
 Parcours RAMO (5 étapes prévues : Audit guidé → Diagnostic → Plan de
 solution → Guide d'installation → Suivi avant/après). On construit un
@@ -13,7 +13,7 @@ morceau à la fois, testé avant de passer au suivant (voir `CLAUDE.md`).
 Aucune donnée n'est dupliquée : l'app lit en direct la base Airtable existante
 (`Suivi Prospects Agences` → table `Agences immobilières`).
 
-## Étape 2 — audit guidé (construite, en attente de validation)
+## Étape 2 — audit guidé ✅ validée en production
 
 À partir de l'agence sélectionnée, un questionnaire structuré en 4
 sections (repris des dimensions déjà utilisées dans la table Airtable
@@ -26,9 +26,20 @@ sections (repris des dimensions déjà utilisées dans la table Airtable
 
 Chaque réponse porte un statut **Fait confirmé** / **Hypothèse à
 vérifier** — la même discipline que le champ `Hypotheses a verifier en
-appel` de la table `Opportunites`. Pas encore de logique de diagnostic
-(ça viendra à l'étape 3) ni d'écriture dans Airtable : les réponses
-restent en mémoire de session pour l'instant.
+appel` de la table `Opportunites`. Pas de logique de diagnostic, pas
+d'écriture dans Airtable : les réponses restent en mémoire de session.
+
+## Étape 3 — diagnostic (construite, en attente de validation)
+
+Reformule les réponses de l'audit en une liste de **problèmes
+identifiés**, uniquement quand la réponse donnée indique effectivement
+un problème (ex. « site web non à jour », « aucun CRM en place »). Une
+réponse saine (« Oui », « Oui, actifs »…) n'apparaît pas comme problème.
+Chaque problème hérite du statut fait confirmé / hypothèse à vérifier de
+la réponse correspondante — aucune nouvelle information n'est déduite ou
+inventée. Les réponses contextuelles (outil utilisé, nombre d'agents,
+volume de leads, notes libres) sont affichées à part, non classées comme
+problèmes. Pas de score, pas de priorisation (ça viendra à l'étape 4).
 
 Stack : **Python + Streamlit** — une seule commande pour lancer, pas de build,
 pas d'écosystème npm à gérer.
@@ -56,7 +67,8 @@ streamlit run app.py
 ```
 
 Le navigateur s'ouvre automatiquement. Choisissez une agence : sa fiche
-(ville / score) s'affiche, suivie du formulaire d'audit guidé.
+(ville / score) s'affiche, suivie du formulaire d'audit guidé, puis du
+diagnostic généré à partir des réponses soumises.
 
 ## Déploiement (Streamlit Community Cloud)
 
@@ -70,6 +82,11 @@ AIRTABLE_BASE_ID = "appsCrRJjuTmuw9Y3"
 AIRTABLE_TABLE_ID = "tblGWjkwRgKkJIps6"
 ```
 
+Pour tester une branche de travail sans toucher à cette app, déployez une
+app Streamlit Cloud séparée (même repo, branche différente, URL
+différente) — voir l'historique de discussion du projet pour la marche à
+suivre détaillée.
+
 ## Architecture (volontairement minimale)
 
 Un seul fichier, `app.py` :
@@ -82,6 +99,10 @@ Un seul fichier, `app.py` :
 - `AUDIT_QUESTIONS` + `render_audit_form()` — étape 2 : questionnaire
   structuré, statut fait/hypothèse par question, récapitulatif en
   mémoire de session (`st.session_state`), isolé par agence.
+- `PROBLEM_STATEMENTS` + `render_diagnostic()` — étape 3 : reformule les
+  réponses "à problème" de l'audit en constats, en héritant leur statut.
+  Purement dérivé de `st.session_state` : aucune saisie, aucun appel
+  réseau supplémentaire.
 - `main()` — assemble le tout.
 
 Le `AIRTABLE_BASE_ID` et `AIRTABLE_TABLE_ID` sont déjà pré-remplis dans
@@ -92,6 +113,7 @@ seulement si vous voulez pointer vers une autre base/table.
 
 Pas de framework de test lourd pour un projet de cette taille — validation
 via `streamlit.testing.v1.AppTest` (exécute réellement `app.py`, simule la
-sélection d'agence, le remplissage du formulaire et la soumission) avec des
-réponses Airtable simulées. Fait avant chaque livraison, pas de suite de
-tests committée pour l'instant vu la taille du projet.
+sélection d'agence, le remplissage du formulaire, la soumission et — pour
+l'étape 3 — le contenu du diagnostic généré) avec des réponses Airtable
+simulées. Fait avant chaque livraison, pas de suite de tests committée
+pour l'instant vu la taille du projet.

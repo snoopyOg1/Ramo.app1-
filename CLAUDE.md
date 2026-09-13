@@ -66,16 +66,22 @@ explicite de l'étape en cours par l'utilisateur.
 - **Étape 1 — validée en production.** Testée par l'utilisateur en
   conditions réelles sur Streamlit Community Cloud (132 agences
   chargées, ex. ABD Immobilier / Creil / score 81). Fusionnée dans
-  `main` : c'est la branche à déployer.
-- **Étape 2 — audit guidé, construite et testée localement**
-  (`streamlit.testing.v1.AppTest` : sélection d'agence, remplissage,
-  soumission, isolation de l'état entre agences, cas "rien renseigné"),
-  en attente de validation utilisateur en conditions réelles. Pas de
-  logique de diagnostic, pas d'écriture dans Airtable à ce stade — les
-  réponses restent en mémoire de session. Sur la branche de travail
+  `main`.
+- **Étape 2 — audit guidé, validée en production.** Testée par
+  l'utilisateur en conditions réelles (statuts Fait confirmé/Hypothèse
+  à vérifier corrects, "Non renseigné" fonctionnel, pas de fuite d'état
+  entre agences). Fusionnée dans `main` : c'est la branche à déployer.
+- **Étape 3 — diagnostic, construite et testée localement**
+  (`streamlit.testing.v1.AppTest` : pas d'audit → message d'invite,
+  mélange réponses problème/non-problème/non renseignées → bons
+  problèmes générés avec statut hérité, cas "zéro problème"), en
+  attente de validation utilisateur en conditions réelles. Pure
+  reformulation des réponses de l'audit (pas de nouvelle information
+  déduite) ; pas de score ni de priorisation ; pas d'écriture dans
+  Airtable. Sur la branche de travail
   `claude/airtable-connection-v1-pbiy4w`, pas encore mergée dans `main`.
 
-Rien au-delà de l'étape 2 tant que ce n'est pas validé.
+Rien au-delà de l'étape 3 tant que ce n'est pas validé.
 
 ## Sécurité
 
