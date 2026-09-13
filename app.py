@@ -1,12 +1,14 @@
 """RAMO — Étape 1 : connexion Airtable (sélection d'agence).
 Étape 2 : audit guidé (questionnaire structuré).
 Étape 3 : diagnostic (reformulation des réponses en problèmes, sans score).
+Étape 4 : plan de solution priorisé (automatisation + impact/complexité/
+priorité par problème, grille validée avec l'utilisateur).
 
 Aucune donnée n'est dupliquée : on lit en direct la base Airtable existante
-("Suivi Prospects Agences" -> table "Agences immobilières"). L'audit et le
-diagnostic ne font que capturer/reformuler des réponses pour l'instant —
-rien n'est encore écrit dans Airtable et aucun score n'est calculé (ça
-viendra à l'étape 4, avec le plan de solution).
+("Suivi Prospects Agences" -> table "Agences immobilières"). Rien n'est
+encore écrit dans Airtable : audit, diagnostic et plan restent en mémoire
+de session (ça viendra à une étape ultérieure, avec confirmation explicite
+avant toute écriture, comme l'exige CLAUDE.md).
 """
 
 import os
@@ -121,6 +123,54 @@ PROBLEM_STATEMENTS = {
 # problème/non-problème) : affichées telles quelles dans le diagnostic,
 # sans statut fait/hypothèse ni classement en "problème".
 CONTEXT_QUESTION_KEYS = ["outil_suivi_leads", "nombre_agents", "volume_leads_mensuel"]
+
+# Étape 4 — Plan de solution priorisé : une automatisation par catégorie de
+# problème du diagnostic, avec Impact et Complexité (grille validée avec
+# l'utilisateur). La Priorité n'est jamais saisie à la main : elle est
+# calculée depuis PRIORITY_MATRIX ci-dessous, pour rester cohérente et
+# ne pas dupliquer un jugement déjà exprimé par Impact/Complexité.
+PLAN_ITEMS = {
+    "site_web_a_jour": {
+        "automation": "Site synchronisé automatiquement avec les annonces (CRM/portails → site).",
+        "impact": "Élevé",
+        "complexite": "Élevée",
+    },
+    "reseaux_sociaux_actifs": {
+        "automation": "Publication automatique et régulière sur les réseaux sociaux.",
+        "impact": "Moyen",
+        "complexite": "Faible",
+    },
+    "crm_structure": {
+        "automation": "Mise en place d'un CRM avec centralisation automatique des leads.",
+        "impact": "Élevé",
+        "complexite": "Moyenne",
+    },
+    "delai_relance": {
+        "automation": "Relance automatique immédiate des nouveaux leads (email/SMS).",
+        "impact": "Élevé",
+        "complexite": "Faible",
+    },
+    "process_relance_automatise": {
+        "automation": "Mise en place ou complément d'un scénario de relance automatisé.",
+        "impact": "Élevé",
+        "complexite": "Faible",
+    },
+}
+
+# Matrice impact/effort standard (Impact, Complexité) -> Priorité.
+PRIORITY_MATRIX = {
+    ("Élevé", "Faible"): "Haute",
+    ("Élevé", "Moyenne"): "Haute",
+    ("Élevé", "Élevée"): "Moyenne",
+    ("Moyen", "Faible"): "Moyenne",
+    ("Moyen", "Moyenne"): "Moyenne",
+    ("Moyen", "Élevée"): "Basse",
+    ("Faible", "Faible"): "Basse",
+    ("Faible", "Moyenne"): "Basse",
+    ("Faible", "Élevée"): "Basse",
+}
+PRIORITY_ORDER = {"Haute": 0, "Moyenne": 1, "Basse": 2}
+PRIORITY_BADGE = {"Haute": "🔴", "Moyenne": "🟡", "Basse": "⚪"}
 
 
 def get_config(key, default=None):
@@ -276,6 +326,29 @@ def render_audit_form(agency):
                 st.write(f"**Notes** — {saved['notes']}")
 
 
+def compute_diagnostic_problems(saved):
+    """Reformule les réponses "à problème" d'un audit sauvegardé en une
+    liste de problèmes ({key, section, statement, statut}). Partagé entre
+    le diagnostic (étape 3) et le plan de solution (étape 4) pour ne pas
+    dupliquer cette logique.
+    """
+    problems = []
+    for q in AUDIT_QUESTIONS:
+        options_map = PROBLEM_STATEMENTS.get(q["key"])
+        if not options_map:
+            continue
+        answer = saved["answers"].get(q["key"])
+        if not answer:
+            continue
+        statement = options_map.get(answer["reponse"])
+        if not statement:
+            continue  # réponse donnée, mais pas une réponse "à problème"
+        problems.append(
+            {"key": q["key"], "section": q["section"], "statement": statement, "statut": answer["statut"]}
+        )
+    return problems
+
+
 def render_diagnostic(agency):
     """Étape 3 : diagnostic — liste des problèmes identifiés à partir des
     réponses de l'audit guidé (étape 2). Pure reformulation : chaque
@@ -293,32 +366,18 @@ def render_diagnostic(agency):
 
     st.caption(f"Basé sur l'audit du {saved['date']}.")
 
+    problems = compute_diagnostic_problems(saved)
     problems_by_section = {}
-    current_section = None
-    for q in AUDIT_QUESTIONS:
-        if q["section"] != current_section:
-            current_section = q["section"]
-        options_map = PROBLEM_STATEMENTS.get(q["key"])
-        if not options_map:
-            continue
-        answer = saved["answers"].get(q["key"])
-        if not answer:
-            continue
-        statement = options_map.get(answer["reponse"])
-        if not statement:
-            continue  # réponse donnée, mais pas une réponse "à problème"
-        problems_by_section.setdefault(q["section"], []).append(
-            {"statement": statement, "statut": answer["statut"]}
-        )
+    for p in problems:
+        problems_by_section.setdefault(p["section"], []).append(p)
 
-    total_problems = sum(len(v) for v in problems_by_section.values())
-    if total_problems == 0:
+    if not problems:
         st.success("Aucun problème identifié à partir des réponses de l'audit.")
     else:
-        st.write(f"**{total_problems} problème(s) identifié(s)**")
-        for section, problems in problems_by_section.items():
+        st.write(f"**{len(problems)} problème(s) identifié(s)**")
+        for section, probs in problems_by_section.items():
             st.markdown(f"**{section}**")
-            for p in problems:
+            for p in probs:
                 badge = "✅" if p["statut"] == "Fait confirmé" else "❓"
                 st.write(f"{badge} {p['statement']} _({p['statut']})_")
 
@@ -336,10 +395,58 @@ def render_diagnostic(agency):
                 st.write(item)
 
 
+def render_plan(agency):
+    """Étape 4 : plan de solution priorisé. Pour chaque problème du
+    diagnostic (étape 3), propose l'automatisation associée (PLAN_ITEMS)
+    avec Impact / Complexité, et une Priorité calculée par PRIORITY_MATRIX
+    (grille validée avec l'utilisateur). Le statut fait confirmé /
+    hypothèse à vérifier est hérité du problème d'origine, affiché mais
+    n'influence pas la priorité. Rien écrit dans Airtable : plan
+    entièrement dérivé de st.session_state, comme le diagnostic.
+    """
+    st.divider()
+    st.header("Plan de solution priorisé")
+
+    saved = st.session_state.get("audits", {}).get(agency["id"])
+    if not saved:
+        st.info("Complétez d'abord l'audit guidé ci-dessus pour générer le plan de cette agence.")
+        return
+
+    problems = compute_diagnostic_problems(saved)
+    if not problems:
+        st.success("Aucun problème identifié : pas de plan à proposer pour le moment.")
+        return
+
+    plan_rows = []
+    for p in problems:
+        item = PLAN_ITEMS.get(p["key"])
+        if not item:
+            continue  # pas d'automatisation définie pour cette catégorie
+        priorite = PRIORITY_MATRIX[(item["impact"], item["complexite"])]
+        plan_rows.append(
+            {
+                "problem": p["statement"],
+                "automation": item["automation"],
+                "impact": item["impact"],
+                "complexite": item["complexite"],
+                "priorite": priorite,
+                "statut": p["statut"],
+            }
+        )
+
+    plan_rows.sort(key=lambda r: PRIORITY_ORDER[r["priorite"]])
+
+    for row in plan_rows:
+        with st.container(border=True):
+            st.markdown(f"{PRIORITY_BADGE[row['priorite']]} **Priorité {row['priorite']}** — {row['automation']}")
+            st.caption(f"Problème d'origine : {row['problem']} ({row['statut']})")
+            st.write(f"Impact : {row['impact']} · Complexité : {row['complexite']}")
+
+
 def main():
     st.set_page_config(page_title="RAMO — Audit guidé", page_icon="🏠")
     st.title("RAMO")
-    st.caption("Étape 1 : connexion Airtable · Étape 2 : audit guidé · Étape 3 : diagnostic")
+    st.caption("Étape 1 : Airtable · Étape 2 : audit · Étape 3 : diagnostic · Étape 4 : plan de solution")
 
     token = get_config("AIRTABLE_TOKEN")
     base_id = get_config("AIRTABLE_BASE_ID", DEFAULT_BASE_ID)
@@ -364,6 +471,7 @@ def main():
         render_agency_card(agency)
         render_audit_form(agency)
         render_diagnostic(agency)
+        render_plan(agency)
 
 
 if __name__ == "__main__":

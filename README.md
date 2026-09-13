@@ -1,4 +1,4 @@
-# RAMO — Étapes 1, 2 & 3
+# RAMO — Étapes 1 à 4
 
 Parcours RAMO (5 étapes prévues : Audit guidé → Diagnostic → Plan de
 solution → Guide d'installation → Suivi avant/après). On construit un
@@ -39,7 +39,26 @@ Chaque problème hérite du statut fait confirmé / hypothèse à vérifier de
 la réponse correspondante — aucune nouvelle information n'est déduite ou
 inventée. Les réponses contextuelles (outil utilisé, nombre d'agents,
 volume de leads, notes libres) sont affichées à part, non classées comme
-problèmes. Pas de score, pas de priorisation (ça viendra à l'étape 4).
+problèmes. Pas de score, pas de priorisation.
+
+## Étape 4 — plan de solution priorisé (construite, en attente de validation)
+
+Pour chaque problème du diagnostic, propose une automatisation avec
+**Impact**, **Complexité** et **Priorité** (grille validée avec
+l'utilisateur — pas de reprise d'une grille Airtable "Agent Opportunité"
+qui s'est révélée non représentée dans les données réelles, voir
+`CLAUDE.md`) :
+
+- Impact et Complexité : Faible / Moyen(ne) / Élevé(e), un couple fixe par
+  catégorie de problème (`PLAN_ITEMS`)
+- Priorité : calculée automatiquement par une matrice impact/effort
+  standard (`PRIORITY_MATRIX`), jamais saisie à la main
+- Chaque ligne du plan hérite le statut fait confirmé / hypothèse à
+  vérifier du problème d'origine (affiché, sans influencer la priorité)
+- Trié par priorité (Haute → Moyenne → Basse)
+
+Pas d'écriture dans Airtable à ce stade — plan entièrement dérivé de
+`st.session_state`, comme le diagnostic.
 
 Stack : **Python + Streamlit** — une seule commande pour lancer, pas de build,
 pas d'écosystème npm à gérer.
@@ -99,11 +118,18 @@ Un seul fichier, `app.py` :
 - `AUDIT_QUESTIONS` + `render_audit_form()` — étape 2 : questionnaire
   structuré, statut fait/hypothèse par question, récapitulatif en
   mémoire de session (`st.session_state`), isolé par agence.
-- `PROBLEM_STATEMENTS` + `render_diagnostic()` — étape 3 : reformule les
-  réponses "à problème" de l'audit en constats, en héritant leur statut.
-  Purement dérivé de `st.session_state` : aucune saisie, aucun appel
-  réseau supplémentaire.
+- `PROBLEM_STATEMENTS` + `compute_diagnostic_problems()` +
+  `render_diagnostic()` — étape 3 : reformule les réponses "à problème" de
+  l'audit en constats, en héritant leur statut. `compute_diagnostic_problems()`
+  est partagée avec l'étape 4 pour ne pas dupliquer cette logique.
+- `PLAN_ITEMS` + `PRIORITY_MATRIX` + `render_plan()` — étape 4 : une
+  automatisation par catégorie de problème, Impact/Complexité fixes,
+  Priorité calculée (jamais saisie à la main).
 - `main()` — assemble le tout.
+
+Diagnostic et plan sont purement dérivés de `st.session_state` : aucune
+saisie supplémentaire, aucun appel réseau au-delà du chargement des
+agences.
 
 Le `AIRTABLE_BASE_ID` et `AIRTABLE_TABLE_ID` sont déjà pré-remplis dans
 `.streamlit/secrets.toml.example` avec les valeurs de votre base ; changez-les
@@ -113,7 +139,7 @@ seulement si vous voulez pointer vers une autre base/table.
 
 Pas de framework de test lourd pour un projet de cette taille — validation
 via `streamlit.testing.v1.AppTest` (exécute réellement `app.py`, simule la
-sélection d'agence, le remplissage du formulaire, la soumission et — pour
-l'étape 3 — le contenu du diagnostic généré) avec des réponses Airtable
+sélection d'agence, le remplissage du formulaire, la soumission et le
+contenu généré du diagnostic et du plan) avec des réponses Airtable
 simulées. Fait avant chaque livraison, pas de suite de tests committée
 pour l'instant vu la taille du projet.
