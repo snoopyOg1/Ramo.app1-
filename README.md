@@ -29,7 +29,7 @@ vérifier** — la même discipline que le champ `Hypotheses a verifier en
 appel` de la table `Opportunites`. Pas de logique de diagnostic, pas
 d'écriture dans Airtable : les réponses restent en mémoire de session.
 
-## Étape 3 — diagnostic (construite, en attente de validation)
+## Étape 3 — diagnostic ✅ validée en production
 
 Reformule les réponses de l'audit en une liste de **problèmes
 identifiés**, uniquement quand la réponse donnée indique effectivement
