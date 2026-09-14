@@ -92,6 +92,21 @@ la grille Impact/Complexité/Priorité effectivement utilisée dans RAMO
 4. **Guide d'installation pas à pas**
 5. **Suivi avant/après**
 
+### ⚠️ Écart connu (2026-09-14) : l'étape 4 de cette liste n'a jamais été construite
+
+Ce qui a été bâti dans l'app, dans l'ordre (numérotation différente,
+"connexion Airtable" ajoutée en fondation avant les 5 étapes ci-dessus) :
+connexion Airtable → Audit guidé → Diagnostic → Plan de solution priorisé
+→ **(rien)** → Suivi avant/après. **"Guide d'installation pas à pas"
+(point 4 ci-dessus) n'existe nulle part dans `app.py`** — vérifié par
+recherche dans le code, aucune trace. L'utilisateur a demandé l'étape
+"Suivi avant/après" en la qualifiant de "la dernière", et a ensuite
+déclaré le parcours V1 complet une fois celle-ci validée — sans que
+personne (ni lui, ni Claude au moment de coder l'étape) ne remarque
+l'étape sautée. Pas encore résolu : l'utilisateur doit dire si c'est un
+oubli à combler, un abandon délibéré (auquel cas retirer ce point de la
+liste ci-dessus), ou autre chose.
+
 ## Méthode incrémentale
 
 On construit **un morceau à la fois**, testé avant de passer au suivant.
@@ -142,11 +157,18 @@ explicite de l'étape en cours par l'utilisateur.
   `st.session_state`, parce que cette étape doit survivre entre deux
   visites espacées de plusieurs semaines. Aucun calcul de delta/ROI
   (affichage brut Avant/Après côte à côte), comme demandé. Sur la
-  branche de travail `claude/airtable-connection-v1-pbiy4w`, pas encore
-  mergée dans `main`.
+  branche de travail `claude/airtable-connection-v1-pbiy4w` — **validée
+  en conditions réelles par l'utilisateur, fusionnée dans `main`.**
 
-Rien au-delà de l'étape 5 tant qu'elle n'est pas validée — et l'étape 5
-est la dernière du périmètre V1.
+Les 4 étapes construites (Audit guidé, Diagnostic, Plan de solution
+priorisé, Suivi avant/après) sont validées en production. **Mais voir
+l'écart ci-dessus** : "Guide d'installation pas à pas" (point 4 du
+périmètre V1 original) n'a pas été construit — le parcours V1 n'est
+donc pas complet au sens de sa définition d'origine, même si
+l'utilisateur a décidé de le considérer terminé pour l'instant le
+2026-09-14. Ne pas construire ce point sans qu'il le redemande
+explicitement, mais ne pas non plus affirmer que "les 5 étapes sont
+complètes" sans nuancer.
 
 ## Sécurité
 
