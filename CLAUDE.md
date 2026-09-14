@@ -47,6 +47,30 @@ Avant de coder contre une base/table Airtable, vérifier son schéma exact
 via le connecteur Airtable MCP disponible dans Claude Code plutôt que de
 supposer les noms de champs.
 
+### ⚠️ Incohérence documentaire connue — à corriger plus tard (pas urgent)
+
+La base **RAMO - Fiches Agents** (`apppAOsJkmODOcBk3`, table `Fiches
+Agents`) contient une fiche **"Agent Opportunité"** dont le champ Output
+affirme : *"Une ou plusieurs lignes dans la table 'Opportunités' ... :
+automatisation, impact, complexité, priorité, score commercial,
+justification"* et un statut *"Construit et testé sur les 13 agences de
+Creil (audits migrés)"*.
+
+Vérifié le 2026-09-13 : **ce résultat n'existe pas dans les données
+réelles**. Les 70 enregistrements de la table `Opportunites` (dont les
+13 du lot "Creil-test-1") ne contiennent que la grille de qualification
+Agent Prospect (Presence digitale, Absence de CRM, Taille structure,
+Activite confirmee, Statut opportunite) — aucun champ automatisation,
+impact, complexité, priorité ou score commercial. Confirmé par
+l'utilisateur : l'évaluation Creil a été faite au cas par cas en
+conversation, jamais formalisée dans une grille écrite quelque part.
+
+**À faire plus tard** (pas maintenant) : corriger la fiche "Agent
+Opportunité" dans RAMO - Fiches Agents pour refléter la réalité — soit
+en retirant l'affirmation de résultat testé, soit en y réconciliant
+la grille Impact/Complexité/Priorité effectivement utilisée dans RAMO
+(étape 4, voir plus bas), une fois celle-ci stabilisée.
+
 ## Périmètre V1 : 5 étapes du parcours
 
 1. **Audit guidé**
@@ -79,8 +103,21 @@ explicite de l'étape en cours par l'utilisateur.
   réponses de l'audit (pas de nouvelle information déduite) ; pas de
   score ni de priorisation ; pas d'écriture dans Airtable. Fusionnée
   dans `main` : c'est la branche à déployer.
+- **Étape 4 — plan de solution priorisé, construite et testée
+  localement** (`streamlit.testing.v1.AppTest` : plan vide avant audit,
+  automatisations générées uniquement pour les vraies réponses-problème,
+  tri par priorité correct, statuts hérités affichés, non-régression sur
+  étapes 2 et 3 après refactor de `compute_diagnostic_problems`), en
+  attente de validation utilisateur en conditions réelles. Grille
+  Impact/Complexité par catégorie de problème + matrice de priorité
+  standard, toutes deux validées explicitement par l'utilisateur avant
+  codage (pas de reprise de la grille "Agent Opportunité" d'Airtable,
+  qui s'est révélée non représentée dans les données réelles — voir
+  section incohérence documentaire ci-dessus). Pas d'écriture dans
+  Airtable. Sur la branche de travail
+  `claude/airtable-connection-v1-pbiy4w`, pas encore mergée dans `main`.
 
-Rien au-delà de l'étape 3 tant que l'étape 4 n'est pas validée.
+Rien au-delà de l'étape 4 tant qu'elle n'est pas validée.
 
 ## Sécurité
 
