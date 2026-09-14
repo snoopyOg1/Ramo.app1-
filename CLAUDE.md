@@ -83,29 +83,27 @@ en retirant l'affirmation de résultat testé, soit en y réconciliant
 la grille Impact/Complexité/Priorité effectivement utilisée dans RAMO
 (étape 4, voir plus bas), une fois celle-ci stabilisée.
 
-## Périmètre V1 : 5 étapes du parcours
+## Périmètre V1 : 4 étapes du parcours
+
+Décidé le 2026-09-14 : le périmètre listait initialement 5 étapes avec
+un "Guide d'installation pas à pas" en position 4. Simplification
+volontaire actée par l'utilisateur (pas un oubli, voir note du
+2026-09-14 ci-dessous) — retiré du périmètre V1. Le parcours V1 réel,
+complet, est :
 
 1. **Audit guidé**
 2. **Diagnostic** — distinction stricte fait confirmé / hypothèse à
    vérifier (ne jamais présenter une hypothèse comme un fait)
 3. **Plan de solution priorisé**
-4. **Guide d'installation pas à pas**
-5. **Suivi avant/après**
+4. **Suivi avant/après**
 
-### ⚠️ Écart connu (2026-09-14) : l'étape 4 de cette liste n'a jamais été construite
+### Piste V2 (pas maintenant) : Guide d'installation pas à pas
 
-Ce qui a été bâti dans l'app, dans l'ordre (numérotation différente,
-"connexion Airtable" ajoutée en fondation avant les 5 étapes ci-dessus) :
-connexion Airtable → Audit guidé → Diagnostic → Plan de solution priorisé
-→ **(rien)** → Suivi avant/après. **"Guide d'installation pas à pas"
-(point 4 ci-dessus) n'existe nulle part dans `app.py`** — vérifié par
-recherche dans le code, aucune trace. L'utilisateur a demandé l'étape
-"Suivi avant/après" en la qualifiant de "la dernière", et a ensuite
-déclaré le parcours V1 complet une fois celle-ci validée — sans que
-personne (ni lui, ni Claude au moment de coder l'étape) ne remarque
-l'étape sautée. Pas encore résolu : l'utilisateur doit dire si c'est un
-oubli à combler, un abandon délibéré (auquel cas retirer ce point de la
-liste ci-dessus), ou autre chose.
+Retiré du V1 le 2026-09-14, à reconsidérer seulement une fois qu'il
+existera un vrai catalogue de solutions reproductibles construit à
+partir de plusieurs clients (pas avant — un guide écrit pour un seul
+client ne serait pas encore un vrai "guide reproductible"). Ne pas
+construire sans demande explicite de l'utilisateur à ce moment-là.
 
 ## Méthode incrémentale
 
@@ -160,15 +158,12 @@ explicite de l'étape en cours par l'utilisateur.
   branche de travail `claude/airtable-connection-v1-pbiy4w` — **validée
   en conditions réelles par l'utilisateur, fusionnée dans `main`.**
 
-Les 4 étapes construites (Audit guidé, Diagnostic, Plan de solution
-priorisé, Suivi avant/après) sont validées en production. **Mais voir
-l'écart ci-dessus** : "Guide d'installation pas à pas" (point 4 du
-périmètre V1 original) n'a pas été construit — le parcours V1 n'est
-donc pas complet au sens de sa définition d'origine, même si
-l'utilisateur a décidé de le considérer terminé pour l'instant le
-2026-09-14. Ne pas construire ce point sans qu'il le redemande
-explicitement, mais ne pas non plus affirmer que "les 5 étapes sont
-complètes" sans nuancer.
+**Les 4 étapes du périmètre V1 (Audit guidé, Diagnostic, Plan de
+solution priorisé, Suivi avant/après) sont validées en production —
+V1 est complet.** Le "Guide d'installation pas à pas" qui figurait dans
+une version antérieure de ce périmètre en a été retiré le 2026-09-14
+(simplification volontaire, pas un oubli — voir "Piste V2" ci-dessus) ;
+ne pas le construire sans demande explicite de l'utilisateur.
 
 ## Sécurité
 
