@@ -7,6 +7,14 @@ priorité par problème, grille validée avec l'utilisateur).
 la table Airtable "Suivi Avant/Après" — première et seule écriture de
 l'app, confirmée explicitement par l'utilisateur avant codage).
 
+V2 (2026-09-14) : audit enrichi de 2 sections ("Prise de RDV & visites",
+"Gestion documentaire & signature électronique") et plan de solution
+étendu de 5 à 7 automatisations, chacune avec un guide fixe en 3 parties
+(pourquoi ça compte / comment faire / piège à éviter). Le "comment faire"
+est calculé dynamiquement par agence (agency_has_named_tool) : vérifier
+un outil déjà nommé dans l'audit avant de dupliquer, sinon recommander
+Make + Airtable — jamais de variante au cas par cas.
+
 Aucune donnée n'est dupliquée : on lit en direct la base Airtable existante
 ("Suivi Prospects Agences" -> table "Agences immobilières"). Audit,
 diagnostic et plan restent en mémoire de session (aucune écriture). Seul
@@ -83,6 +91,39 @@ AUDIT_QUESTIONS = [
         "options": ["Oui", "Non", "Partiel"],
     },
     {
+        "key": "rdv_rappels",
+        "section": "Prise de RDV & visites",
+        "label": "Y a-t-il des rappels automatiques avant un rendez-vous ? (le no-show a un coût réel)",
+        "type": "select",
+        "options": ["Oui, automatiques", "Rappels manuels seulement", "Aucun rappel", "Ne sait pas"],
+    },
+    {
+        "key": "rdv_outil",
+        "section": "Prise de RDV & visites",
+        "label": "Avec quel outil les rendez-vous sont-ils pris et confirmés aujourd'hui ?",
+        "type": "text",
+        "placeholder": "ex : agenda papier, Calendly, CRM intégré, de mémoire…",
+    },
+    {
+        "key": "doc_gestion",
+        "section": "Gestion documentaire & signature électronique",
+        "label": "Comment les mandats/offres/compromis sont-ils gérés aujourd'hui ?",
+        "type": "select",
+        "options": [
+            "Signature électronique (outil dédié)",
+            "Email (PDF) sans signature électronique",
+            "Entièrement papier",
+            "Ne sait pas",
+        ],
+    },
+    {
+        "key": "doc_outil",
+        "section": "Gestion documentaire & signature électronique",
+        "label": "Quel outil (le cas échéant) est utilisé pour la gestion documentaire ou la signature électronique ?",
+        "type": "text",
+        "placeholder": "ex : DocuSign, Yousign, aucun, ne sait pas…",
+    },
+    {
         "key": "nombre_agents",
         "section": "Taille & activité",
         "label": "Nombre d'agents actifs dans l'agence",
@@ -129,12 +170,28 @@ PROBLEM_STATEMENTS = {
         "Non": "Aucun process de relance automatisé ou systématique en place.",
         "Partiel": "Le process de relance automatisé n'est que partiel.",
     },
+    "rdv_rappels": {
+        "Rappels manuels seulement": "Les rappels de rendez-vous sont faits manuellement, sans automatisation.",
+        "Aucun rappel": "Aucun rappel de rendez-vous en place.",
+        "Ne sait pas": "La présence de rappels de rendez-vous n'est pas connue.",
+    },
+    "doc_gestion": {
+        "Email (PDF) sans signature électronique": "Les mandats/offres/compromis sont gérés par email sans signature électronique.",
+        "Entièrement papier": "Les mandats/offres/compromis sont gérés entièrement en papier.",
+        "Ne sait pas": "Le mode de gestion des mandats/offres/compromis n'est pas connu.",
+    },
 }
 
 # Questions de l'audit dont la réponse est contextuelle (pas un choix fermé
 # problème/non-problème) : affichées telles quelles dans le diagnostic,
 # sans statut fait/hypothèse ni classement en "problème".
-CONTEXT_QUESTION_KEYS = ["outil_suivi_leads", "nombre_agents", "volume_leads_mensuel"]
+CONTEXT_QUESTION_KEYS = [
+    "outil_suivi_leads",
+    "rdv_outil",
+    "doc_outil",
+    "nombre_agents",
+    "volume_leads_mensuel",
+]
 
 # Étape 4 — Plan de solution priorisé : une automatisation par catégorie de
 # problème du diagnostic, avec Impact et Complexité (grille validée avec
@@ -146,28 +203,84 @@ PLAN_ITEMS = {
         "automation": "Site synchronisé automatiquement avec les annonces (CRM/portails → site).",
         "impact": "Élevé",
         "complexite": "Élevée",
+        "pourquoi": "Le site web est souvent le premier point de contact d'un prospect avec "
+        "l'agence — s'il est daté ou hors service, ce prospect part voir un concurrent.",
+        "piege": "Refaire un site custom sans connecter automatiquement les annonces revient "
+        "à recréer le même problème de mise à jour manuelle.",
     },
     "reseaux_sociaux_actifs": {
         "automation": "Publication automatique et régulière sur les réseaux sociaux.",
         "impact": "Moyen",
         "complexite": "Faible",
+        "pourquoi": "Une présence sociale active entretient la visibilité de l'agence entre "
+        "deux mandats, sans dépendre uniquement des portails payants.",
+        "piege": "Publier sans stratégie éditoriale claire (juste pour publier) use la "
+        "présence sociale sans construire de vraie audience.",
     },
     "crm_structure": {
         "automation": "Mise en place d'un CRM avec centralisation automatique des leads.",
         "impact": "Élevé",
         "complexite": "Moyenne",
+        "pourquoi": "Sans CRM structuré, chaque lead dépend de la mémoire ou de la "
+        "disponibilité d'une seule personne — un lead oublié est un lead perdu.",
+        "piege": "Migrer vers un nouveau CRM sans reprendre l'historique des contacts "
+        "existants fait perdre le travail de suivi déjà fait.",
     },
     "delai_relance": {
         "automation": "Relance automatique immédiate des nouveaux leads (email/SMS).",
         "impact": "Élevé",
         "complexite": "Faible",
+        "pourquoi": "Un prospect qui contacte une agence contacte généralement plusieurs "
+        "agences en même temps — le premier à répondre a un avantage réel.",
+        "piege": "Automatiser la relance sans prévenir l'agent qui doit ensuite reprendre "
+        "la main transforme l'automatisation en boîte noire que personne ne suit.",
     },
     "process_relance_automatise": {
         "automation": "Mise en place ou complément d'un scénario de relance automatisé.",
         "impact": "Élevé",
         "complexite": "Faible",
+        "pourquoi": "Un process de relance qui dépend de la mémoire de chacun s'arrête dès "
+        "qu'un agent est absent ou débordé.",
+        "piege": "Automatiser la relance sans définir clairement qui reprend la main "
+        "humainement à un moment donné laisse le prospect en boucle indéfiniment.",
+    },
+    "rdv_rappels": {
+        "automation": "Rappels de rendez-vous automatisés (SMS/email) pour réduire le no-show.",
+        "impact": "Élevé",
+        "complexite": "Faible",
+        "pourquoi": "Un rendez-vous non confirmé la veille a un risque de no-show réel — "
+        "chaque visite manquée est un créneau perdu pour l'agent.",
+        "piege": "Envoyer un rappel générique sans possibilité de reprogrammer en un clic "
+        "pousse le prospect à ne pas répondre plutôt qu'à confirmer.",
+    },
+    "doc_gestion": {
+        "automation": "Mise en place d'une solution de signature électronique pour "
+        "mandats/offres/compromis.",
+        "impact": "Moyen",
+        "complexite": "Faible",
+        "pourquoi": "Un mandat ou un compromis qui attend une signature papier retarde "
+        "toute la chaîne — vente, financement, déménagement du client.",
+        "piege": "Déployer un outil de signature électronique sans former les agents à son "
+        "usage fait revenir tout le monde au papier dès le premier blocage.",
     },
 }
+
+# "Comment faire" (partie b du guide) : règle unique appliquée à chaque
+# automatisation, jamais de variante au cas par cas. Si l'agence a déjà
+# nommé un outil dans l'audit (CRM ou logiciel quelconque), on vérifie
+# d'abord l'intégration existante plutôt que de dupliquer un système.
+# Sinon, recommandation systématique Make + Airtable — le stack que RAMO
+# maîtrise et a déjà validé en interne, pas un choix arbitraire au cas
+# par cas.
+COMMENT_FAIRE_AVEC_OUTIL = (
+    "Vérifiez d'abord l'intégration native de l'outil déjà en place, ou une passerelle "
+    "API/Zapier, avant de construire quoi que ce soit en parallèle — ne jamais dupliquer "
+    "un système existant."
+)
+COMMENT_FAIRE_SANS_OUTIL = (
+    "Aucun outil structuré identifié : on recommande Make + Airtable — le stack que RAMO "
+    "maîtrise et a déjà validé en interne."
+)
 
 # Matrice impact/effort standard (Impact, Complexité) -> Priorité.
 PRIORITY_MATRIX = {
@@ -407,14 +520,39 @@ def render_diagnostic(agency):
                 st.write(item)
 
 
+def agency_has_named_tool(saved):
+    """Vrai si l'agence a déjà nommé un outil structuré dans l'audit (CRM
+    ou logiciel quelconque) : sert à choisir entre les deux variantes
+    fixes du "Comment faire" (b) du plan de solution — vérifier une
+    intégration existante, ou recommander Make + Airtable par défaut.
+    """
+    answers = saved["answers"]
+    crm = answers.get("crm_structure")
+    if crm and crm["reponse"] in ("Oui, CRM structuré", "Outil basique (Excel, Sheets)"):
+        return True
+    for key in ("outil_suivi_leads", "rdv_outil", "doc_outil"):
+        a = answers.get(key)
+        if a and a["reponse"] and a["reponse"].strip():
+            return True
+    return False
+
+
 def render_plan(agency):
     """Étape 4 : plan de solution priorisé. Pour chaque problème du
     diagnostic (étape 3), propose l'automatisation associée (PLAN_ITEMS)
-    avec Impact / Complexité, et une Priorité calculée par PRIORITY_MATRIX
-    (grille validée avec l'utilisateur). Le statut fait confirmé /
-    hypothèse à vérifier est hérité du problème d'origine, affiché mais
-    n'influence pas la priorité. Rien écrit dans Airtable : plan
-    entièrement dérivé de st.session_state, comme le diagnostic.
+    avec Impact / Complexité, une Priorité calculée par PRIORITY_MATRIX
+    (grille validée avec l'utilisateur), et un guide en 3 parties fixes,
+    toujours dans le même ordre :
+      (a) Pourquoi ça compte — texte fixe par automatisation, jamais de
+          chiffre inventé
+      (b) Comment faire — règle unique calculée dynamiquement (voir
+          agency_has_named_tool) : vérifier un outil déjà nommé dans
+          l'audit, sinon recommander Make + Airtable
+      (c) Piège classique à éviter — texte fixe par automatisation
+    Le statut fait confirmé / hypothèse à vérifier est hérité du problème
+    d'origine, affiché mais n'influence pas la priorité. Rien écrit dans
+    Airtable : plan entièrement dérivé de st.session_state, comme le
+    diagnostic.
     """
     st.divider()
     st.header("Plan de solution priorisé")
@@ -428,6 +566,8 @@ def render_plan(agency):
     if not problems:
         st.success("Aucun problème identifié : pas de plan à proposer pour le moment.")
         return
+
+    comment_faire = COMMENT_FAIRE_AVEC_OUTIL if agency_has_named_tool(saved) else COMMENT_FAIRE_SANS_OUTIL
 
     plan_rows = []
     for p in problems:
@@ -443,6 +583,8 @@ def render_plan(agency):
                 "complexite": item["complexite"],
                 "priorite": priorite,
                 "statut": p["statut"],
+                "pourquoi": item["pourquoi"],
+                "piege": item["piege"],
             }
         )
 
@@ -453,6 +595,9 @@ def render_plan(agency):
             st.markdown(f"{PRIORITY_BADGE[row['priorite']]} **Priorité {row['priorite']}** — {row['automation']}")
             st.caption(f"Problème d'origine : {row['problem']} ({row['statut']})")
             st.write(f"Impact : {row['impact']} · Complexité : {row['complexite']}")
+            st.write(f"**Pourquoi ça compte** — {row['pourquoi']}")
+            st.write(f"**Comment faire** — {comment_faire}")
+            st.write(f"**Piège classique à éviter** — {row['piege']}")
 
 
 def fetch_suivi(token, base_id, table_id, agency_id):
