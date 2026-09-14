@@ -3,12 +3,16 @@
 Étape 3 : diagnostic (reformulation des réponses en problèmes, sans score).
 Étape 4 : plan de solution priorisé (automatisation + impact/complexité/
 priorité par problème, grille validée avec l'utilisateur).
+Étape 5 : suivi avant/après (relevés d'indicateurs par agence, écrits dans
+la table Airtable "Suivi Avant/Après" — première et seule écriture de
+l'app, confirmée explicitement par l'utilisateur avant codage).
 
 Aucune donnée n'est dupliquée : on lit en direct la base Airtable existante
-("Suivi Prospects Agences" -> table "Agences immobilières"). Rien n'est
-encore écrit dans Airtable : audit, diagnostic et plan restent en mémoire
-de session (ça viendra à une étape ultérieure, avec confirmation explicite
-avant toute écriture, comme l'exige CLAUDE.md).
+("Suivi Prospects Agences" -> table "Agences immobilières"). Audit,
+diagnostic et plan restent en mémoire de session (aucune écriture). Seul
+le suivi avant/après écrit dans Airtable, avec gestion d'erreur explicite
+(token sans droit d'écriture, service indisponible) — jamais de crash
+silencieux.
 """
 
 import os
@@ -23,6 +27,14 @@ FIELD_SCORE = "score prospect"
 
 DEFAULT_BASE_ID = "appsCrRJjuTmuw9Y3"
 DEFAULT_TABLE_ID = "tblGWjkwRgKkJIps6"
+DEFAULT_SUIVI_TABLE_ID = "tblPFYGMdN7xcnqgN"  # table "Suivi Avant/Après"
+
+SUIVI_FIELD_TITRE = "Titre"
+SUIVI_FIELD_AGENCE = "Agence"
+SUIVI_FIELD_DATE = "Date"
+SUIVI_FIELD_MOMENT = "Moment"
+SUIVI_FIELD_NOTES = "Notes"
+SUIVI_MOMENTS = ["Avant", "Après"]
 
 # Questionnaire d'audit guidé — repris des 4 dimensions déjà utilisées dans
 # la table Airtable "Opportunites" (Présence digitale, Absence de CRM,
@@ -443,14 +455,179 @@ def render_plan(agency):
             st.write(f"Impact : {row['impact']} · Complexité : {row['complexite']}")
 
 
+def fetch_suivi(token, base_id, table_id, agency_id):
+    """Récupère tous les relevés Suivi Avant/Après pour une agence donnée.
+    Pas de cache (table faite pour être écrite souvent, on veut la donnée
+    fraîche juste après un enregistrement).
+    """
+    url = f"https://api.airtable.com/v0/{base_id}/{table_id}"
+    headers = {"Authorization": f"Bearer {token}"}
+    params = {"pageSize": 100}
+
+    records = []
+    offset = None
+    while True:
+        if offset:
+            params["offset"] = offset
+        else:
+            params.pop("offset", None)
+
+        response = requests.get(url, headers=headers, params=params, timeout=15)
+        if not response.ok:
+            raise RuntimeError(f"Airtable a répondu {response.status_code} — {response.text}")
+
+        data = response.json()
+        for record in data.get("records", []):
+            fields = record.get("fields", {})
+            linked = fields.get(SUIVI_FIELD_AGENCE, [])
+            if agency_id not in linked:
+                continue
+            indicateurs = [
+                (fields.get(f"Indicateur {i} - nom"), fields.get(f"Indicateur {i} - valeur"))
+                for i in (1, 2, 3)
+                if fields.get(f"Indicateur {i} - nom")
+            ]
+            records.append(
+                {
+                    "id": record["id"],
+                    "date": fields.get(SUIVI_FIELD_DATE, ""),
+                    "moment": fields.get(SUIVI_FIELD_MOMENT, ""),
+                    "indicateurs": indicateurs,
+                    "notes": fields.get(SUIVI_FIELD_NOTES, ""),
+                }
+            )
+
+        offset = data.get("offset")
+        if not offset:
+            break
+
+    records.sort(key=lambda r: r["date"])
+    return records
+
+
+def save_suivi_snapshot(token, base_id, table_id, agency, moment, indicators, notes):
+    """Écrit un nouveau relevé dans Suivi Avant/Après. Lève une RuntimeError
+    avec un message clair (jamais un crash silencieux) sur toute erreur :
+    token sans droit d'écriture, Airtable indisponible, etc.
+    """
+    url = f"https://api.airtable.com/v0/{base_id}/{table_id}"
+    headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+    date_str = date.today().isoformat()
+
+    fields = {
+        SUIVI_FIELD_TITRE: f"{agency['name']} — {moment} — {date_str}",
+        SUIVI_FIELD_AGENCE: [agency["id"]],
+        SUIVI_FIELD_DATE: date_str,
+        SUIVI_FIELD_MOMENT: moment,
+    }
+    for i, (nom, valeur) in enumerate(indicators, start=1):
+        if not nom:
+            continue
+        fields[f"Indicateur {i} - nom"] = nom
+        fields[f"Indicateur {i} - valeur"] = valeur or ""
+    if notes:
+        fields[SUIVI_FIELD_NOTES] = notes
+
+    try:
+        response = requests.post(url, headers=headers, json={"records": [{"fields": fields}]}, timeout=15)
+    except requests.exceptions.RequestException as exc:
+        raise RuntimeError(f"Impossible de contacter Airtable (réseau/service indisponible) : {exc}") from exc
+
+    if not response.ok:
+        if response.status_code in (401, 403):
+            raise RuntimeError(
+                "Airtable a refusé l'écriture (token sans le scope 'data.records:write' ?). "
+                "Ajoutez ce scope à votre token existant sur https://airtable.com/create/tokens, "
+                "puis réessayez — pas besoin de créer un nouveau token."
+            )
+        raise RuntimeError(f"Airtable a répondu {response.status_code} — {response.text}")
+
+
+def render_releve_card(releve):
+    st.write(f"📅 {releve['date'] or '(date inconnue)'}")
+    for nom, valeur in releve["indicateurs"]:
+        st.write(f"- **{nom}** : {valeur or '—'}")
+    if releve["notes"]:
+        st.caption(releve["notes"])
+
+
+def render_suivi(agency, token, base_id, suivi_table_id):
+    """Étape 5 : suivi avant/après. Affiche les relevés existants pour
+    l'agence (côte à côte, sans aucun calcul de delta/ROI) et permet d'en
+    ajouter un nouveau. Première écriture Airtable de l'app — toute erreur
+    (token sans droit d'écriture, Airtable indisponible) affiche un
+    message clair, jamais un crash.
+    """
+    st.divider()
+    st.header("Suivi avant/après")
+
+    try:
+        releves = fetch_suivi(token, base_id, suivi_table_id, agency["id"])
+    except Exception as exc:
+        st.error(f"Impossible de récupérer le suivi depuis Airtable : {exc}")
+        releves = None
+
+    if releves is not None:
+        avant = [r for r in releves if r["moment"] == "Avant"]
+        apres = [r for r in releves if r["moment"] == "Après"]
+
+        if not avant and not apres:
+            st.caption("Aucun relevé pour cette agence pour le moment.")
+        else:
+            col1, col2 = st.columns(2)
+            with col1:
+                st.subheader("Avant")
+                if avant:
+                    for r in avant:
+                        render_releve_card(r)
+                else:
+                    st.caption("Aucun relevé « avant » pour le moment.")
+            with col2:
+                st.subheader("Après")
+                if apres:
+                    for r in apres:
+                        render_releve_card(r)
+                else:
+                    st.caption("Aucun relevé « après » pour le moment.")
+
+    with st.form(key=f"suivi_form_{agency['id']}"):
+        st.markdown("**Ajouter un relevé**")
+        moment = st.radio("Moment", options=SUIVI_MOMENTS, horizontal=True, key=f"{agency['id']}_suivi_moment")
+        ind1_nom = st.text_input("Indicateur 1 — nom", key=f"{agency['id']}_suivi_ind1_nom")
+        ind1_val = st.text_input("Indicateur 1 — valeur", key=f"{agency['id']}_suivi_ind1_val")
+        ind2_nom = st.text_input("Indicateur 2 — nom (optionnel)", key=f"{agency['id']}_suivi_ind2_nom")
+        ind2_val = st.text_input("Indicateur 2 — valeur", key=f"{agency['id']}_suivi_ind2_val")
+        ind3_nom = st.text_input("Indicateur 3 — nom (optionnel)", key=f"{agency['id']}_suivi_ind3_nom")
+        ind3_val = st.text_input("Indicateur 3 — valeur", key=f"{agency['id']}_suivi_ind3_val")
+        notes = st.text_area("Notes", key=f"{agency['id']}_suivi_notes")
+        submitted = st.form_submit_button("Enregistrer le relevé")
+
+    if submitted:
+        if not ind1_nom.strip():
+            st.warning("Renseignez au moins l'indicateur 1 (nom) avant d'enregistrer.")
+        else:
+            indicators = [(ind1_nom, ind1_val), (ind2_nom, ind2_val), (ind3_nom, ind3_val)]
+            try:
+                save_suivi_snapshot(token, base_id, suivi_table_id, agency, moment, indicators, notes)
+            except Exception as exc:
+                st.error(f"Impossible d'enregistrer le relevé dans Airtable : {exc}")
+            else:
+                st.success(f"Relevé « {moment} » enregistré ✅")
+                st.rerun()
+
+
 def main():
     st.set_page_config(page_title="RAMO — Audit guidé", page_icon="🏠")
     st.title("RAMO")
-    st.caption("Étape 1 : Airtable · Étape 2 : audit · Étape 3 : diagnostic · Étape 4 : plan de solution")
+    st.caption(
+        "Étape 1 : Airtable · Étape 2 : audit · Étape 3 : diagnostic · "
+        "Étape 4 : plan de solution · Étape 5 : suivi avant/après"
+    )
 
     token = get_config("AIRTABLE_TOKEN")
     base_id = get_config("AIRTABLE_BASE_ID", DEFAULT_BASE_ID)
     table_id = get_config("AIRTABLE_TABLE_ID", DEFAULT_TABLE_ID)
+    suivi_table_id = get_config("AIRTABLE_SUIVI_TABLE_ID", DEFAULT_SUIVI_TABLE_ID)
 
     if not token:
         st.error(
@@ -472,6 +649,7 @@ def main():
         render_audit_form(agency)
         render_diagnostic(agency)
         render_plan(agency)
+        render_suivi(agency, token, base_id, suivi_table_id)
 
 
 if __name__ == "__main__":

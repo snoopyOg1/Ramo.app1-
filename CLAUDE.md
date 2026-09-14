@@ -28,7 +28,10 @@ pour lancer (`streamlit run app.py`), pas de build, pas d'écosystème npm
 L'app se connecte aux bases Airtable existantes de l'utilisateur, en
 lecture directe à chaque besoin (ou via cache court `st.cache_data`).
 Elle ne duplique jamais les données dans une base locale, un fichier, ou
-un autre store.
+un autre store. Depuis l'étape 5, elle écrit aussi dans une table dédiée
+(`Suivi Avant/Après`, voir ci-dessous) — la seule écriture de l'app à ce
+jour, dans une table créée spécifiquement pour elle (pas de modification
+de données existantes d'agences/opportunités).
 
 Base connue à ce jour :
 - **Suivi Prospects Agences** — base ID `appsCrRJjuTmuw9Y3`
@@ -42,6 +45,15 @@ Base connue à ce jour :
     table dans cette base, pas une base séparée**, malgré la mention
     initiale de deux bases distinctes. Ces 4 dimensions ont servi de
     trame aux questions de l'audit guidé (étape 2).
+  - table `Suivi Avant/Après` (ID `tblPFYGMdN7xcnqgN`) : créée le
+    2026-09-14 pour l'étape 5. Un enregistrement = un relevé d'indicateurs
+    pour une agence à un instant donné (`Agence` lien, `Date`, `Moment`
+    Avant/Après, jusqu'à 3 paires `Indicateur N - nom` / `Indicateur N -
+    valeur` en texte libre, `Notes`). Schéma proposé puis validé
+    explicitement par l'utilisateur avant création. **Seule table de ce
+    projet où l'app écrit, pas seulement lit** — le token Airtable de
+    déploiement doit avoir le scope `data.records:write` en plus de
+    `data.records:read`.
 
 Avant de coder contre une base/table Airtable, vérifier son schéma exact
 via le connecteur Airtable MCP disponible dans Claude Code plutôt que de
@@ -114,10 +126,27 @@ explicite de l'étape en cours par l'utilisateur.
   codage (pas de reprise de la grille "Agent Opportunité" d'Airtable,
   qui s'est révélée non représentée dans les données réelles — voir
   section incohérence documentaire ci-dessus). Pas d'écriture dans
-  Airtable. Sur la branche de travail
-  `claude/airtable-connection-v1-pbiy4w`, pas encore mergée dans `main`.
+  Airtable. Fusionnée dans `main` : c'est la branche à déployer.
+- **Étape 5 — suivi avant/après, construite et testée localement**
+  (`streamlit.testing.v1.AppTest` : aucun relevé au départ, validation
+  "indicateur 1 requis" sans appel Airtable si vide, enregistrement
+  réussi visible après rerun, isolation entre agences, ET les 3 chemins
+  d'erreur d'écriture/lecture explicitement demandés par l'utilisateur —
+  token sans scope `data.records:write` (403), Airtable indisponible
+  (exception réseau), échec de lecture du suivi existant — chacun avec
+  message clair, jamais de crash ; non-régression complète sur les
+  étapes 2 à 4), en attente de validation utilisateur en conditions
+  réelles. Persistance décidée avec l'utilisateur : écriture dans une
+  nouvelle table Airtable `Suivi Avant/Après` (schéma validé
+  explicitement avant création — voir ci-dessus) plutôt que
+  `st.session_state`, parce que cette étape doit survivre entre deux
+  visites espacées de plusieurs semaines. Aucun calcul de delta/ROI
+  (affichage brut Avant/Après côte à côte), comme demandé. Sur la
+  branche de travail `claude/airtable-connection-v1-pbiy4w`, pas encore
+  mergée dans `main`.
 
-Rien au-delà de l'étape 4 tant qu'elle n'est pas validée.
+Rien au-delà de l'étape 5 tant qu'elle n'est pas validée — et l'étape 5
+est la dernière du périmètre V1.
 
 ## Sécurité
 
@@ -128,9 +157,16 @@ Rien au-delà de l'étape 4 tant qu'elle n'est pas validée.
 - Toute dépendance ajoutée doit être vérifiée sans vulnérabilité connue
   avant d'être committée (`pip install` + vérification, pas d'ajout
   "par défaut" sans contrôle).
+- Toute écriture Airtable (fonctions `save_*`) doit convertir l'échec en
+  message clair (`st.error`), jamais laisser un crash brut ou une
+  exception non gérée remonter à l'utilisateur — voir
+  `save_suivi_snapshot()` comme référence (distingue explicitement le
+  cas "scope manquant" du cas "service indisponible").
 - Avant de dévier d'une décision listée dans ce fichier (stack, méthode,
   périmètre), le signaler explicitement à l'utilisateur et demander
   confirmation plutôt que de trancher seul.
 - Avant d'écrire dans une base Airtable de production (pas seulement en
-  lire), demander confirmation explicite — ce n'est pas encore le cas à
-  ce stade (étapes 1-2 en lecture seule).
+  lire) — schéma d'une nouvelle table ou données —, demander confirmation
+  explicite. Fait pour l'étape 5 (`Suivi Avant/Après`, schéma proposé
+  puis validé avant création) : à refaire systématiquement pour toute
+  future écriture.

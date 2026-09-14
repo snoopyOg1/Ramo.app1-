@@ -1,4 +1,4 @@
-# RAMO — Étapes 1 à 4
+# RAMO — Étapes 1 à 5
 
 Parcours RAMO (5 étapes prévues : Audit guidé → Diagnostic → Plan de
 solution → Guide d'installation → Suivi avant/après). On construit un
@@ -41,7 +41,7 @@ inventée. Les réponses contextuelles (outil utilisé, nombre d'agents,
 volume de leads, notes libres) sont affichées à part, non classées comme
 problèmes. Pas de score, pas de priorisation.
 
-## Étape 4 — plan de solution priorisé (construite, en attente de validation)
+## Étape 4 — plan de solution priorisé ✅ validée en production
 
 Pour chaque problème du diagnostic, propose une automatisation avec
 **Impact**, **Complexité** et **Priorité** (grille validée avec
@@ -60,6 +60,21 @@ qui s'est révélée non représentée dans les données réelles, voir
 Pas d'écriture dans Airtable à ce stade — plan entièrement dérivé de
 `st.session_state`, comme le diagnostic.
 
+## Étape 5 — suivi avant/après (construite, en attente de validation)
+
+Pour l'agence sélectionnée : relevé d'indicateurs libres (jusqu'à 3 par
+relevé, nom + valeur en texte libre — pas de liste imposée, ça dépend de
+l'automatisation) à un instant donné, marqué **Avant** ou **Après**.
+Affichage côte à côte des relevés existants, **sans aucun calcul** (pas
+de delta, pas de %, pas de ROI), comme demandé.
+
+**Première écriture Airtable de l'app** (tout le reste est lecture seule) :
+nouvelle table `Suivi Avant/Après` (liée à `Agences immobilières`), créée
+et son schéma validé explicitement avec l'utilisateur avant codage — voir
+`CLAUDE.md`. Toute erreur d'écriture (token sans le scope
+`data.records:write`, Airtable indisponible) affiche un message clair,
+jamais un crash — testé explicitement pour ces deux cas.
+
 Stack : **Python + Streamlit** — une seule commande pour lancer, pas de build,
 pas d'écosystème npm à gérer.
 
@@ -67,10 +82,14 @@ pas d'écosystème npm à gérer.
 
 - Python 3.9+
 - Un Personal Access Token Airtable ayant :
-  - le scope `data.records:read`
+  - les scopes `data.records:read` **et** `data.records:write` (l'écriture
+    est nécessaire depuis l'étape 5)
   - l'accès à la base `Suivi Prospects Agences` (`appsCrRJjuTmuw9Y3`)
 
-Créez un token ici : https://airtable.com/create/tokens
+Créez un token ici : https://airtable.com/create/tokens — si vous avez déjà
+un token en lecture seule d'une étape précédente, ajoutez-lui simplement le
+scope `data.records:write` dans l'interface Airtable (la valeur du token ne
+change pas, rien à retoucher dans vos secrets).
 
 ## Installation
 
@@ -99,6 +118,7 @@ les branches de travail `claude/...` peuvent être nettoyées). Dans
 AIRTABLE_TOKEN = "votre_token_airtable"
 AIRTABLE_BASE_ID = "appsCrRJjuTmuw9Y3"
 AIRTABLE_TABLE_ID = "tblGWjkwRgKkJIps6"
+AIRTABLE_SUIVI_TABLE_ID = "tblPFYGMdN7xcnqgN"
 ```
 
 Pour tester une branche de travail sans toucher à cette app, déployez une
@@ -125,21 +145,29 @@ Un seul fichier, `app.py` :
 - `PLAN_ITEMS` + `PRIORITY_MATRIX` + `render_plan()` — étape 4 : une
   automatisation par catégorie de problème, Impact/Complexité fixes,
   Priorité calculée (jamais saisie à la main).
+- `fetch_suivi()` / `save_suivi_snapshot()` / `render_suivi()` — étape 5 :
+  lit et écrit dans la table Airtable `Suivi Avant/Après`. Toute erreur
+  (token sans droit d'écriture, service indisponible) est convertie en
+  message clair (`st.error`), jamais un crash brut.
 - `main()` — assemble le tout.
 
 Diagnostic et plan sont purement dérivés de `st.session_state` : aucune
 saisie supplémentaire, aucun appel réseau au-delà du chargement des
-agences.
+agences. Le suivi avant/après est la seule partie qui lit ET écrit dans
+Airtable à chaque interaction (pas de cache, pour toujours afficher la
+donnée fraîche juste après un enregistrement).
 
-Le `AIRTABLE_BASE_ID` et `AIRTABLE_TABLE_ID` sont déjà pré-remplis dans
-`.streamlit/secrets.toml.example` avec les valeurs de votre base ; changez-les
-seulement si vous voulez pointer vers une autre base/table.
+Le `AIRTABLE_BASE_ID`, `AIRTABLE_TABLE_ID` et `AIRTABLE_SUIVI_TABLE_ID`
+sont déjà pré-remplis dans `.streamlit/secrets.toml.example` avec les
+valeurs de votre base ; changez-les seulement si vous voulez pointer vers
+une autre base/table.
 
 ## Tests
 
 Pas de framework de test lourd pour un projet de cette taille — validation
 via `streamlit.testing.v1.AppTest` (exécute réellement `app.py`, simule la
-sélection d'agence, le remplissage du formulaire, la soumission et le
-contenu généré du diagnostic et du plan) avec des réponses Airtable
-simulées. Fait avant chaque livraison, pas de suite de tests committée
-pour l'instant vu la taille du projet.
+sélection d'agence, le remplissage des formulaires, les soumissions et le
+contenu généré à chaque étape) avec des réponses Airtable simulées —
+y compris les chemins d'erreur d'écriture (token sans droit d'écriture,
+service indisponible) pour l'étape 5. Fait avant chaque livraison, pas de
+suite de tests committée pour l'instant vu la taille du projet.
