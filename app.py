@@ -205,6 +205,9 @@ PLAN_ITEMS = {
         "complexite": "Élevée",
         "pourquoi": "Le site web est souvent le premier point de contact d'un prospect avec "
         "l'agence — s'il est daté ou hors service, ce prospect part voir un concurrent.",
+        "mecanisme": "Concrètement : chaque nouvelle annonce (ou changement de statut) créée "
+        "dans le CRM/l'outil de gestion déclenche automatiquement sa publication ou sa mise à "
+        "jour sur le site, sans ressaisie manuelle.",
         "piege": "Refaire un site custom sans connecter automatiquement les annonces revient "
         "à recréer le même problème de mise à jour manuelle.",
     },
@@ -214,6 +217,9 @@ PLAN_ITEMS = {
         "complexite": "Faible",
         "pourquoi": "Une présence sociale active entretient la visibilité de l'agence entre "
         "deux mandats, sans dépendre uniquement des portails payants.",
+        "mecanisme": "Concrètement : chaque nouvelle annonce ou jalon (bien vendu, avis client) "
+        "déclenche la génération d'un visuel/texte et sa publication programmée sur les "
+        "réseaux de l'agence, à fréquence régulière plutôt qu'au coup par coup.",
         "piege": "Publier sans stratégie éditoriale claire (juste pour publier) use la "
         "présence sociale sans construire de vraie audience.",
     },
@@ -223,6 +229,9 @@ PLAN_ITEMS = {
         "complexite": "Moyenne",
         "pourquoi": "Sans CRM structuré, chaque lead dépend de la mémoire ou de la "
         "disponibilité d'une seule personne — un lead oublié est un lead perdu.",
+        "mecanisme": "Concrètement : chaque nouveau contact (formulaire site, portail, appel) "
+        "déclenche la création automatique d'une fiche centralisée (source, date, statut), "
+        "au lieu d'être noté à la main ou seulement dans une boîte mail.",
         "piege": "Migrer vers un nouveau CRM sans reprendre l'historique des contacts "
         "existants fait perdre le travail de suivi déjà fait.",
     },
@@ -232,6 +241,9 @@ PLAN_ITEMS = {
         "complexite": "Faible",
         "pourquoi": "Un prospect qui contacte une agence contacte généralement plusieurs "
         "agences en même temps — le premier à répondre a un avantage réel.",
+        "mecanisme": "Concrètement : l'arrivée d'un nouveau lead déclenche l'envoi immédiat "
+        "d'un email ou SMS de premier contact (accusé de réception, prochaine étape), avant "
+        "même la prise en charge par un agent.",
         "piege": "Automatiser la relance sans prévenir l'agent qui doit ensuite reprendre "
         "la main transforme l'automatisation en boîte noire que personne ne suit.",
     },
@@ -241,6 +253,9 @@ PLAN_ITEMS = {
         "complexite": "Faible",
         "pourquoi": "Un process de relance qui dépend de la mémoire de chacun s'arrête dès "
         "qu'un agent est absent ou débordé.",
+        "mecanisme": "Concrètement : l'absence de réponse d'un lead après un délai défini "
+        "(par exemple 48h) déclenche une relance automatique programmée, avec une alerte à "
+        "l'agent si le lead reste sans réponse après 2-3 relances.",
         "piege": "Automatiser la relance sans définir clairement qui reprend la main "
         "humainement à un moment donné laisse le prospect en boucle indéfiniment.",
     },
@@ -250,6 +265,9 @@ PLAN_ITEMS = {
         "complexite": "Faible",
         "pourquoi": "Un rendez-vous non confirmé la veille a un risque de no-show réel — "
         "chaque visite manquée est un créneau perdu pour l'agent.",
+        "mecanisme": "Concrètement : la confirmation d'un rendez-vous dans l'agenda déclenche "
+        "l'envoi automatique d'un rappel (par exemple 24h avant) par SMS ou email, avec un "
+        "lien pour reprogrammer en un clic plutôt que de devoir rappeler l'agence.",
         "piege": "Envoyer un rappel générique sans possibilité de reprogrammer en un clic "
         "pousse le prospect à ne pas répondre plutôt qu'à confirmer.",
     },
@@ -260,6 +278,9 @@ PLAN_ITEMS = {
         "complexite": "Faible",
         "pourquoi": "Un mandat ou un compromis qui attend une signature papier retarde "
         "toute la chaîne — vente, financement, déménagement du client.",
+        "mecanisme": "Concrètement : un mandat/offre/compromis prêt à signer déclenche son "
+        "envoi automatique pour signature électronique, avec un suivi centralisé du statut "
+        "(envoyé / signé / à relancer) plutôt qu'un classeur papier ou des PDF éparpillés.",
         "piege": "Déployer un outil de signature électronique sans former les agents à son "
         "usage fait revenir tout le monde au papier dès le premier blocage.",
     },
@@ -545,7 +566,9 @@ def render_plan(agency):
     toujours dans le même ordre :
       (a) Pourquoi ça compte — texte fixe par automatisation, jamais de
           chiffre inventé
-      (b) Comment faire — règle unique calculée dynamiquement (voir
+      (b) Comment faire — mécanisme concret propre à l'automatisation
+          (texte fixe : déclencheur → action, PLAN_ITEMS[...]["mecanisme"])
+          suivi de la règle de routage unique calculée dynamiquement (voir
           agency_has_named_tool) : vérifier un outil déjà nommé dans
           l'audit, sinon recommander Make + Airtable
       (c) Piège classique à éviter — texte fixe par automatisation
@@ -584,6 +607,7 @@ def render_plan(agency):
                 "priorite": priorite,
                 "statut": p["statut"],
                 "pourquoi": item["pourquoi"],
+                "mecanisme": item["mecanisme"],
                 "piege": item["piege"],
             }
         )
@@ -596,7 +620,7 @@ def render_plan(agency):
             st.caption(f"Problème d'origine : {row['problem']} ({row['statut']})")
             st.write(f"Impact : {row['impact']} · Complexité : {row['complexite']}")
             st.write(f"**Pourquoi ça compte** — {row['pourquoi']}")
-            st.write(f"**Comment faire** — {comment_faire}")
+            st.write(f"**Comment faire** — {row['mecanisme']} {comment_faire}")
             st.write(f"**Piège classique à éviter** — {row['piege']}")
 
 
